@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Wiki Race</title>
+    </head>
+    <body>
+        <h1>Wiki Race</h1>
+        <form action="/" method="post">
+            <div class="mb-3">
+                <input autocomplete="off" autofocus class="form-control mx-auto w-auto" id="start" name="start" placeholder="Start Link" type="text">
+                <br><br>
+                <input autocomplete="off" autofocus class="form-control mx-auto w-auto" id="end" name="end" placeholder="End Link" type="text">
+                <br><br>
+            </div>
+            <button class="btn btn-primary" type="submit">Submit</button>
+      
+            {% block main %}
+                <h3>{{message}}</h3>
+                    {% for row in data %}
+                        <a href="{{ row }}">{{row}}</a>
+                        <br>
+                            
+                    {% endfor %}
+                        
+                    </table>
+        
+                
+              
+            {% endblock %}
+        
+    
+          
+    </body>
+</html>
+
+<style>
+    * {
+        text-align: center;
+    }
+
+    center {
+        text-align: center;
+    }
+
+    
+</style>
+
