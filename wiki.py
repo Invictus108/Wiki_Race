@@ -2,15 +2,95 @@ import requests
 import time
 import urllib
 
+class deque:
+    def __init__(self, size):
+        self.forward = 0
+        self.size = size
+        self.deque = [None] * size
+        self.count = 0
+
+    def append_left(self, element):
+        if self.count >= self.size:
+            self.alloc()
+        self.forward = (self.forward - 1) % self.size
+        self.deque[self.forward] = element
+        self.count += 1
+
+    def append_right(self, element):
+        if self.count >= self.size:
+            self.alloc()
+        index = (self.count + self.forward) % self.size
+        self.deque[index] = element
+        self.count += 1
+
+    def pop_left(self):
+        if self.count == 0:
+            return None
+        value = self.deque[self.forward]
+        self.forward = (self.forward + 1) % self.size
+        self.count -= 1
+        if self.count < self.size // 2 and self.size > 1:
+            self.free()
+        return value
+
+
+    def pop_right(self):
+        if self.count == 0:
+            return None
+        value = self.deque[(self.forward + self.count - 1) % self.size]
+        self.count -= 1
+        if self.count < self.size // 2 and self.size > 1:
+            self.free()
+        return value
+    
+    def peek_left(self):
+        if self.count == 0:
+            return None
+        return self.deque[self.forward]
+
+    def peek_right(self):
+        if self.count == 0:
+            return None
+        return self.deque[(self.forward + self.count - 1) % self.size]
+        
+
+    def get_count(self):
+        return self.count
+
+    def alloc(self):
+        new_size = self.size * 2
+        tmp = [None] * new_size
+        # Reorder elements starting from self.forward
+        for i in range(self.count):
+            tmp[i] = self.deque[(self.forward + i) % self.size]
+        self.deque = tmp
+        self.forward = 0  # Reset forward
+        self.size = new_size
+
+    def free(self):
+        new_size = max(self.size // 2, 1)  # Prevent reducing size to 0
+        tmp = [None] * new_size
+        for i in range(self.count):
+            tmp[i] = self.deque[(self.forward + i) % self.size]
+        self.deque = tmp
+        self.forward = 0  # Reset forward
+        self.size = new_size
 
 class wikiracer:
     def __init__(self, start, end, reverse):
         self.start = start
         self.end = end
-        self.depth = 0
-        self.queue = [[self.start, self.depth]]
-        self.visited = []
+
+        # set deque and initialize with starting node
+        self.queue = deque(10)
+        self.queue.append_right(self.start)
+
+        # set to check whether a links been visited
+        self.visited = set()
+
+        # hash table for path reconstrution 
         self.path = {self.start: [self.start]}
+
         self.reverse = reverse
         self.id = "Reverse" if self.reverse else "Forward"
         
@@ -18,41 +98,22 @@ class wikiracer:
     def search(self):
         arr = []
 
-        #return empty if nothing there
-        if(len(self.queue) == 0):
-            print(self.id, "Queue empty")
-            return arr
-
-        current = self.queue.pop(self.get_index())
+        current = self.queue.pop_left()
 
         if self.reverse:
-            links = self.get_backlinks(current[0])
+            links = self.get_backlinks(current)
         else:
-            links = self.get_links(current[0])
+            links = self.get_links(current)
 
         for link in links:
             if link not in self.visited:
-                self.path[link] = self.path[current[0]] + [link]
-
-                if link == self.end:
-                    return self.path[link]
+                self.path[link] = self.path[current] + [link]
             
-                self.visited.append(link)
+                self.visited.add(link)
                 arr.append(link)
-                self.queue.append([link, self.depth + 1])
+                self.queue.append_right(link)
 
-        if len(arr) == 0:
-            print(self.id, "returned empty... Ignoring")       
         return arr
-                
-
-        
-    def get_index(self):
-        for i in range(len(self.queue)):
-            if self.queue[i][1] == self.depth:
-                return i
-        self.depth += 1
-        return self.get_index()
 
 
     def get_path(self, link):
@@ -61,14 +122,7 @@ class wikiracer:
     def get_links(self, page_title, lang='en'):
 
         page_title = page_title.replace("https://en.wikipedia.org/wiki/", "")
-        """
-        Get a list of full URL links to article pages that are linked from the specified Wikipedia page,
-        focusing on links within the main namespace (excluding links to talk pages, user pages, etc.).
-        
-        :param page_title: Title of the Wikipedia page to search for forward links from.
-        :param lang: Language edition of Wikipedia, default is 'en' for English.
-        :return: List of full URLs to article pages linked from the specified page.
-        """
+       
         S = requests.Session()
         URL = f"https://{lang}.wikipedia.org/w/api.php"
 
@@ -77,7 +131,7 @@ class wikiracer:
             "format": "json",
             "titles": page_title,
             "prop": "links",
-            "plnamespace": "0",  # Limit to the main namespace
+            "plnamespace": "0",  
             "pllimit": "max"
         }
 
@@ -105,14 +159,7 @@ class wikiracer:
     def get_backlinks(self, page_title, lang='en'):
 
         page_title = page_title.replace("https://en.wikipedia.org/wiki/", "")
-        """
-        Get a list of full URL links to article pages that link to the specified Wikipedia page,
-        excluding talk pages, user pages, etc.
-        
-        :param page_title: Title of the Wikipedia page to search for backlinks.
-        :param lang: Language edition of Wikipedia, default is 'en' for English.
-        :return: List of full URLs to article pages linking to the specified page.
-        """
+       
         S = requests.Session()
         URL = f"https://{lang}.wikipedia.org/w/api.php"
 
@@ -147,45 +194,54 @@ class wikiracer:
 
         return backlinks
 
-
 def race(start, end):
-    forward_arr = []
-    reverse_arr = []
+    hash = {}
     run = True
 
-    #need to put reverse in end, start
+    # initalize two instance of wiki race, one forward and one backward
     reverse = wikiracer(end, start, True)
     forward = wikiracer(start, end, False)
 
     start_time = time.time()
 
     while run:
+        # get list of links
         out1 = reverse.search()
         out2 = forward.search()
 
-        # if not out1:
-        #     print("Reverse returned nothing")
-        #     return
-        
-        # if not out2:
-        #     print("Forward returned nothing")
-        #     return
+        # add links to hash and identify convergence points
 
         for link1 in out1:
-            #print("Reverse", link1)
-            reverse_arr.append(link1)
-        for link2 in out2:
-            #print("Forward", link2)
-            forward_arr.append(link2)
+            if link1 not in hash:
+                # 0 for reverse
+                hash[link1] = 0
+            else:
+                # if value is one it was added by forward and this is thefore a meeting point
+                if hash[link1] == 1 and link1 != start:
+                    end_time = time.time()
+                    print("Meeting Link: ", link1)
+                    left_path = forward.get_path(link1)
+                    right_path = reverse.get_path(link1)
+                    run = False
+                    break
 
-        for link in reverse_arr:
-            if link in forward_arr and link != start:
-                end_time = time.time()
-                print("Meeting Link: ", link)
-                run = False
-                left_path = forward.get_path(link)
-                right_path = reverse.get_path(link)
-                break
+
+        
+        if run:
+            for link2 in out2:
+                if link2 not in hash:
+                    # 1 for forward
+                    hash[link2] = 1
+                else:
+                    # if value is 0 than it was added by reverse and is therfore a meeting point
+                    if hash[link2] == 0 and link2 != start:
+                        end_time = time.time()
+                        print("Meeting Link: ", link2)
+                        left_path = forward.get_path(link2)
+                        right_path = reverse.get_path(link2)
+                        run = False
+                        break
+
     
     #format stuff so it looks nice
     right_path_reversed = right_path[::-1]
@@ -198,4 +254,3 @@ def race(start, end):
     message = f"Path Found in {round(end_time - start_time, 2)} seconds of depth {len(left_path) + len(right_path_reversed)}:"
     return [full_path, message]
    
-
