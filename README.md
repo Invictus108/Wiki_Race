@@ -1,4 +1,4 @@
-# Wikipedia Path Finder
+# Wiki Race
 
 This project is a Python Flask web application that utilizes **double-ended Breadth-First Search (BFS)** and the **Wikipedia API** to find the shortest path between two Wikipedia pages. The application allows users to enter a starting and target Wikipedia page, and it returns the sequence of pages (links) that form the shortest path between them.
 
