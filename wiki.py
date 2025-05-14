@@ -76,6 +76,7 @@ class deque:
         self.forward = 0  # Reset forward
         self.size = new_size
 
+
 class wikiracer:
     def __init__(self, start, end, reverse):
         self.start = start
@@ -115,11 +116,13 @@ class wikiracer:
 
         return arr
 
-
     def get_path(self, link):
         return self.path[link]
     
     def get_links(self, page_title, lang='en'):
+
+        if page_title is None:
+            return []
 
         page_title = page_title.replace("https://en.wikipedia.org/wiki/", "")
        
@@ -139,8 +142,14 @@ class wikiracer:
 
         while True:
             response = S.get(url=URL, params=PARAMS)
-            data = response.json()
-            
+
+            # Check if the request was successful
+            try:
+                data = response.json()
+            except ValueError:
+                print(f"Failed to decode JSON. Status: {response.status_code}, Content: {response.text}")
+                return []
+                        
             pages = data.get('query', {}).get('pages', {})
             for page_id, page in pages.items():
                 for link in page.get('links', []):
@@ -157,6 +166,9 @@ class wikiracer:
         return forward_links
 
     def get_backlinks(self, page_title, lang='en'):
+
+        if page_title is None:
+            return []
 
         page_title = page_title.replace("https://en.wikipedia.org/wiki/", "")
        
@@ -176,10 +188,16 @@ class wikiracer:
 
         while True:
             response = S.get(url=URL, params=PARAMS)
-            data = response.json()
+
+            # Check if the request was successful
+            try:
+                data = response.json()
+            except ValueError:
+                print(f"Failed to decode JSON. Status: {response.status_code}, Content: {response.text}")
+                return []
 
             # Extract the titles of the pages that link to the target page and convert them to URLs
-            for link in data['query']['backlinks']:
+            for link in data.get('query', {}).get('backlinks', []): # use.get to avoid KeyError
                 title = link['title']
                 # Convert each title to a URL-encoded string
                 encoded_title = urllib.parse.quote(title.replace(' ', '_'))
